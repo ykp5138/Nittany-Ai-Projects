@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlashFlow - AI-powered Quizlet Clone</title>
+    <style>
+        /* Same CSS as before */
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f9f9f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .flashcard-container {
+            position: relative;
+            perspective: 1000px;
+            width: 300px;
+            height: 400px;
+            margin-bottom: 20px;
+        }
+
+        .flashcard {
+            width: 100%;
+            height: 100%;
+            transform-style: preserve-3d;
+            transition: transform 0.5s;
+            cursor: pointer;
+        }
+
+        .flashcard-flipped {
+            transform: rotateY(180deg);
+        }
+
+        .flashcard-front, .flashcard-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .flashcard-front {
+            background-color: #4CAF50;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .flashcard-back {
+            background-color: #ffffff;
+            color: #333;
+            font-size: 16px;
+            font-weight: normal;
+            transform: rotateY(180deg);
+        }
+
+        .navigation-buttons {
+            display: flex;
+            justify-content: space-between;
+            width: 300px;
+            margin-bottom: 20px;
+        }
+
+        .button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        .button:disabled {
+            background-color: #ccc;
+        }
+
+        #quiz {
+            display: none;
+            text-align: center;
+        }
+
+        #quiz button {
+            padding: 8px 15px;
+            margin-top: 10px;
+        }
+
+        .answer-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .flashcard-container {
+                width: 80%;
+                height: 70vh;
+            }
+
+            .flashcard-front, .flashcard-back {
+                font-size: 18px;
+            }
+
+            .button {
+                padding: 8px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>FlashFlow - Learn Faster with Spaced Repetition</h1>
+
+    <div class="flashcard-container" id="flashcard-container">
+        <div class="flashcard" id="flashcard" onclick="flipCard()">
+            <div class="flashcard-front" id="front">Solar System</div>
+            <div class="flashcard-back" id="back">The collection of the Sun and all the celestial bodies that are gravitationally bound to it, including planets, moons, asteroids, comets, and dwarf planets.</div>
+        </div>
+    </div>
+
+    <div class="navigation-buttons">
+        <button class="button" id="prevBtn" onclick="prevCard()">Previous</button>
+        <button class="button" id="nextBtn" onclick="nextCard()">Next</button>
+        <button class="button" id="quizBtn" onclick="startQuiz()">Start Quiz</button>
+    </div>
+
+    <div id="quiz">
+        <h2>Quiz Time!</h2>
+        <p id="question">What is the Solar System?</p>
+        <div class="answer-buttons" id="answer-buttons">
+            <!-- Answers will be dynamically inserted here -->
+        </div>
+        <button class="button" onclick="endQuiz()">End Quiz</button>
+        <p id="quiz-result"></p>
+    </div>
+
+    <script>
+        const flashcards = [
+            { term: "Solar System", definition: "The collection of the Sun and all the celestial bodies that are gravitationally bound to it, including planets, moons, asteroids, comets, and dwarf planets.", difficulty: 1, incorrectAnswers: ["A planet", "A star", "A galaxy"] },
+            { term: "Sun", definition: "A star at the center of the solar system that provides light and heat to the planets. It is composed primarily of hydrogen and helium.", difficulty: 1, incorrectAnswers: ["Earth", "Mars", "Jupiter"] },
+            { term: "Planet", definition: "A large celestial body that orbits a star, is spherical in shape, and has cleared its orbit of other debris. There are eight planets in our solar system.", difficulty: 1, incorrectAnswers: ["Comet", "Moon", "Asteroid"] },
+            { term: "Earth", definition: "The third planet from the Sun, home to life. It has one natural satellite, the Moon.", difficulty: 1, incorrectAnswers: ["Venus", "Mars", "Saturn"] },
+            { term: "Moon", definition: "A natural satellite that orbits a planet. Earth's Moon is the fifth-largest in the solar system.", difficulty: 1, incorrectAnswers: ["Planet", "Comet", "Star"] },
+            { term: "Gravity", definition: "The force that attracts objects toward the center of a planet or star. It is responsible for keeping planets in orbit around stars and moons in orbit around planets.", difficulty: 1, incorrectAnswers: ["Magnetism", "Friction", "Energy"] },
+        ];
+
+        let currentIndex = 0;
+        let currentFlashcard = flashcards[currentIndex];
+        let quizMode = false;
+        let quizQuestions = [];
+        let currentQuestionIndex = 0;
+        let score = 0;
+
+        // Update the flashcard content
+        function updateCard() {
+            const front = document.getElementById('front');
+            const back = document.getElementById('back');
+
+            front.innerHTML = currentFlashcard.term;
+            back.innerHTML = currentFlashcard.definition;
+
+            document.getElementById('prevBtn').disabled = currentIndex === 0;
+            document.getElementById('nextBtn').disabled = currentIndex === flashcards.length - 1;
+        }
+
+        // Flip the flashcard
+        function flipCard() {
+            if (!quizMode) {
+                const flashcard = document.getElementById('flashcard');
+                flashcard.classList.toggle('flashcard-flipped');
+            }
+        }
+
+        // Next card
+        function nextCard() {
+            if (currentIndex < flashcards.length - 1 && !quizMode) {
+                currentIndex++;
+                currentFlashcard = flashcards[currentIndex];
+                updateCard();
+                const flashcard = document.getElementById('flashcard');
+                flashcard.classList.remove('flashcard-flipped');
+            }
+        }
+
+        // Previous card
+        function prevCard() {
+            if (currentIndex > 0 && !quizMode) {
+                currentIndex--;
+                currentFlashcard = flashcards[currentIndex];
+                updateCard();
+                const flashcard = document.getElementById('flashcard');
+                flashcard.classList.remove('flashcard-flipped');
+            }
+        }
+
+        // Start quiz mode
+        function startQuiz() {
+            quizMode = true;
+            score = 0;
+            currentQuestionIndex = 0;
+            quizQuestions = generateQuizQuestions(); // Generate the quiz questions from all flashcards
+            document.getElementById('flashcard-container').style.display = 'none'; // Hide flashcards
+            document.getElementById('quiz').style.display = 'block'; // Show quiz
+            loadQuizQuestion(); // Load the first question
+        }
+
+        // End quiz mode
+        function endQuiz() {
+            quizMode = false;
+            document.getElementById('flashcard-container').style.display = 'block'; // Show flashcards
+            document.getElementById('quiz').style.display = 'none'; // Hide quiz
+            alert(`Quiz complete! Your score: ${score} / ${quizQuestions.length}`);
+        }
+
+        // Generate quiz questions (multiple flashcards)
+        function generateQuizQuestions() {
+            const questions = flashcards.map(card => {
+                const options = [
+                    card.definition,
+                    ...card.incorrectAnswers
+                ];
+                shuffleArray(options); // Shuffle the options to randomize the answer order
+                return { term: card.term, correctAnswer: card.definition, options };
+            });
+            return questions;
+        }
+
+        // Load a quiz question
+        function loadQuizQuestion() {
+            const question = quizQuestions[currentQuestionIndex];
+            const answerButtons = document.getElementById('answer-buttons');
+            const answers = question.options;
+
+            // Set the question text
+            document.getElementById('question').textContent = `What is the ${question.term}?`;
+
+            // Clear and populate the answer buttons
+            answerButtons.innerHTML = '';
+            answers.forEach(answer => {
+                const button = document.createElement('button');
+                button.classList.add('button');
+                button.textContent = answer;
+                button.onclick = () => submitAnswer(answer);
+                answerButtons.appendChild(button);
+            });
+        }
+
+        // Shuffle the answers array
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]]; // Swap elements
+            }
+        }
+
+        // Submit answer and evaluate
+        function submitAnswer(answer) {
+            const question = quizQuestions[currentQuestionIndex];
+            const isCorrect = answer === question.correctAnswer;
+            if (isCorrect) {
+                score++;
+                alert("Correct!");
+            } else {
+                alert("Incorrect.");
+            }
+
+            // Go to the next question
+            currentQuestionIndex++;
+            if (currentQuestionIndex < quizQuestions.length) {
+                loadQuizQuestion(); // Load next question
+            } else {
+                endQuiz(); // End the quiz after all questions are answered
+            }
+        }
+
+        // Initialize first card
+        updateCard();
+    </script>
+
+</body>
+</html>
